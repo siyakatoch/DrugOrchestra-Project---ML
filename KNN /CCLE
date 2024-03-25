@@ -34,3 +34,39 @@ y_pred = model.predict(X_pca)
 scc, _ = spearmanr(y, y_pred)
 print("Spearman correlation coefficient (SCC):", scc)
 
+
+
+import numpy as np
+from sklearn.model_selection import cross_val_score
+from sklearn.neighbors import KNeighborsRegressor
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+
+# Load the dataset
+file_path = r'C:/Users/siyak/Downloads/data/CCLE/data.npy'
+data = np.load(file_path, allow_pickle=True)
+
+# Separate features and target
+X = data[:, :-1]
+y = data[:, -1]
+
+# Standardize the features
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
+
+# Specify the number of components for PCA
+n_components = 10
+pca = PCA(n_components=n_components)
+X_pca = pca.fit_transform(X_scaled)
+
+# Initialize KNN model for regression
+model = KNeighborsRegressor()
+
+# Perform 3-fold cross-validation using Mean Squared Error (MSE) as the evaluation metric
+mse_scores = cross_val_score(model, X_pca, y, cv=3, scoring='neg_mean_squared_error')
+
+# Convert negative MSE to positive
+mse_scores = -mse_scores
+
+# Print cross-validated MSE scores
+print("Cross-validated MSE scores:", mse_scores)
