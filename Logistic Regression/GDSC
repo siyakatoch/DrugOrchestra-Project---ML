@@ -1,0 +1,33 @@
+import numpy as np
+from sklearn.model_selection import cross_val_predict
+from sklearn.linear_model import LogisticRegression
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
+from scipy.stats import spearmanr
+
+# Load the dataset
+file_path = r'C:/Users/siyak/Downloads/data/GDSC/data.npy'
+data = np.load(file_path, allow_pickle=True)
+
+# Separate features and target
+X = data[:, :-1]
+y = data[:, -1]
+
+# Standardize the features
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
+
+# Specify the number of components for PCA
+n_components = 10
+pca = PCA(n_components=n_components)
+X_pca = pca.fit_transform(X_scaled)
+
+# Initialize logistic regression model
+model = LogisticRegression()
+
+# Perform 3-fold cross-validation predictions
+y_proba = cross_val_predict(model, X_pca, y, cv=3, method='predict_proba')[:, 1]
+
+# Calculate Spearman correlation coefficient
+scc, _ = spearmanr(y, y_proba)
+print("Spearman correlation coefficient (SCC):", scc)
