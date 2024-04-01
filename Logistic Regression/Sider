@@ -38,4 +38,30 @@ for train_index, test_index in kf.split(X_pca):
     X_train, X_test = X_pca[train_index], X_pca[test_index]
     y_train, y_test = y[train_index], y[test_index]
     
-    # Fit the mo
+    # Fit the model
+    model.fit(X_train, y_train)
+    
+    # Predict probabilities
+    y_proba = model.predict_proba(X_test)[:, 1]
+    
+    # Compute precision-recall curve
+    precision, recall, _ = precision_recall_curve(y_test, y_proba)
+    precision_list.append(precision)
+    recall_list.append(recall)
+    auprc = auc(recall, precision)
+    auprc_list.append(auprc)
+    
+    # Compute ROC curve
+    fpr, tpr, _ = roc_curve(y_test, y_proba)
+    fpr_list.append(fpr)
+    tpr_list.append(tpr)
+    auroc = auc(fpr, tpr)
+    auroc_list.append(auroc)
+
+# Calculate mean AUPRC
+mean_auprc = np.mean(auprc_list)
+print("Mean Area Under Precision-Recall Curve (AUPRC):", mean_auprc)
+
+# Calculate mean AUROC
+mean_auroc = np.mean(auroc_list)
+print("Mean Area Under ROC Curve (AUROC):", mean_auroc)
