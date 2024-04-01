@@ -1,42 +1,7 @@
 import numpy as np
-from sklearn.model_selection import cross_val_score
+from sklearn.model_selection import KFold, cross_val_score, cross_val_predict
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_absolute_error
-from sklearn.decomposition import PCA
-from sklearn.preprocessing import StandardScaler
-
-# Load the dataset
-file_path = r'C:/Users/siyak/Downloads/data/gdsc/data.npy'  # Corrected file path
-data = np.load(file_path, allow_pickle=True)  # assuming the data is saved with allow_pickle=True
-
-# If the dataset contains labels, separate features and target
-X = data[:, :-1]  # Assuming the last column is the target variable
-y = data[:, -1]   # Assuming the last column is the target variable
-
-# Standardize the features
-scaler = StandardScaler()
-X_scaled = scaler.fit_transform(X)
-
-# Specify the number of components for PCA
-n_components = 10  # You can adjust this as needed
-
-# Perform PCA
-pca = PCA(n_components=n_components)
-X_pca = pca.fit_transform(X_scaled)
-
-# Initialize linear regression model
-model = LinearRegression()
-
-# Perform 3-fold cross-validation using Mean Absolute Error (MAE) as the evaluation metric
-cv_scores = cross_val_score(model, X_pca, y, cv=3, scoring='neg_mean_absolute_error')
-
-# Print cross-validated MAE scores
-print("Cross-validated MAE scores:", -cv_scores)  # Negate scores because cross_val_score returns negative MAE by default
-
-
-import numpy as np
-from sklearn.model_selection import cross_val_predict
-from sklearn.linear_model import LinearRegression
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 from scipy.stats import spearmanr
@@ -59,12 +24,39 @@ pca = PCA(n_components=n_components)
 X_pca = pca.fit_transform(X_scaled)
 
 # Initialize linear regression model
-model = LinearRegression()
+model_lr = LinearRegression()
 
-# Perform 3-fold cross-validation predictions
-y_pred = cross_val_predict(model, X_pca, y, cv=3)
+# Define the number of folds
+n_splits = 3
 
-# Calculate Spearman correlation coefficient
-scc, _ = spearmanr(y, y_pred)
-print("Spearman correlation coefficient:", scc)
+# Initialize arrays to store results
+mae_scores = []
+spearman_correlations = []
 
+# Perform 3 k-fold cross-validation for linear regression model
+kf = KFold(n_splits=n_splits)
+for train_index, test_index in kf.split(X_pca):
+    X_train, X_test = X_pca[train_index], X_pca[test_index]
+    y_train, y_test = y[train_index], y[test_index]
+    
+    # Fit the linear regression model
+    model_lr.fit(X_train, y_train)
+    
+    # Predict using the linear regression model
+    y_pred_lr = model_lr.predict(X_test)
+    
+    # Calculate mean absolute error
+    mae = mean_absolute_error(y_test, y_pred_lr)
+    mae_scores.append(mae)
+
+    # Calculate Spearman correlation coefficient
+    scc, _ = spearmanr(y_test, y_pred_lr)
+    spearman_correlations.append(scc)
+
+# Calculate mean MAE score
+mean_mae = np.mean(mae_scores)
+print("Mean MAE score:", mean_mae)
+
+# Calculate mean Spearman correlation coefficient
+mean_scc = np.mean(spearman_correlations)
+print("Mean Spearman correlation coefficient:", mean_scc)
