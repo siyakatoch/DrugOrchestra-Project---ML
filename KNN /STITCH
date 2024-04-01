@@ -1,5 +1,5 @@
 import numpy as np
-from sklearn.model_selection import KFold, cross_val_predict
+from sklearn.model_selection import KFold
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
@@ -22,8 +22,8 @@ n_components = 10
 pca = PCA(n_components=n_components)
 X_pca = pca.fit_transform(X_scaled)
 
-# Initialize KNN model
-model = KNeighborsClassifier()
+# Initialize KNN model with k=3
+model = KNeighborsClassifier(n_neighbors=3)
 
 # Define the number of folds
 n_splits = 3
