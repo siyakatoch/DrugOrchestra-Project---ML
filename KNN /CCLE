@@ -1,4 +1,5 @@
 import numpy as np
+from sklearn.model_selection import KFold, cross_val_score
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
@@ -22,51 +23,38 @@ pca = PCA(n_components=n_components)
 X_pca = pca.fit_transform(X_scaled)
 
 # Initialize KNN model for regression
-model = KNeighborsRegressor()
+model_knn = KNeighborsRegressor()
 
-# Fit the model
-model.fit(X_pca, y)
+# Define the number of folds
+n_splits = 3
 
-# Predictions
-y_pred = model.predict(X_pca)
+# Initialize arrays to store results
+mse_scores = []
+spearman_correlations = []
 
-# Calculate Spearman correlation coefficient
-scc, _ = spearmanr(y, y_pred)
-print("Spearman correlation coefficient (SCC):", scc)
+# Perform 3 k-fold cross-validation for KNN regression model
+kf = KFold(n_splits=n_splits)
+for train_index, test_index in kf.split(X_pca):
+    X_train, X_test = X_pca[train_index], X_pca[test_index]
+    y_train, y_test = y[train_index], y[test_index]
+    
+    # Fit the KNN regression model
+    model_knn.fit(X_train, y_train)
+    
+    # Predict using the KNN regression model
+    y_pred_knn = model_knn.predict(X_test)
+    
+    # Calculate mean squared error
+    mse = np.mean((y_test - y_pred_knn)**2)
+    mse_scores.append(mse)
 
-
-
-import numpy as np
-from sklearn.model_selection import cross_val_score
-from sklearn.neighbors import KNeighborsRegressor
-from sklearn.preprocessing import StandardScaler
-from sklearn.decomposition import PCA
-
-# Load the dataset
-file_path = r'C:/Users/siyak/Downloads/data/CCLE/data.npy'
-data = np.load(file_path, allow_pickle=True)
-
-# Separate features and target
-X = data[:, :-1]
-y = data[:, -1]
-
-# Standardize the features
-scaler = StandardScaler()
-X_scaled = scaler.fit_transform(X)
-
-# Specify the number of components for PCA
-n_components = 10
-pca = PCA(n_components=n_components)
-X_pca = pca.fit_transform(X_scaled)
-
-# Initialize KNN model for regression
-model = KNeighborsRegressor()
-
-# Perform 3-fold cross-validation using Mean Squared Error (MSE) as the evaluation metric
-mse_scores = cross_val_score(model, X_pca, y, cv=3, scoring='neg_mean_squared_error')
-
-# Convert negative MSE to positive
-mse_scores = -mse_scores
+    # Calculate Spearman correlation coefficient
+    scc, _ = spearmanr(y_test, y_pred_knn)
+    spearman_correlations.append(scc)
 
 # Print cross-validated MSE scores
 print("Cross-validated MSE scores:", mse_scores)
+
+# Calculate mean Spearman correlation coefficient
+mean_scc = np.mean(spearman_correlations)
+print("Mean Spearman correlation coefficient:", mean_scc)
