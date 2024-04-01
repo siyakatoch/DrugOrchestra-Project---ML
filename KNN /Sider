@@ -1,9 +1,9 @@
 import numpy as np
-from sklearn.model_selection import cross_val_predict
+from sklearn.model_selection import KFold, cross_val_predict
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
-from sklearn.metrics import roc_curve, auc
+from sklearn.metrics import roc_curve, auc, precision_recall_curve
 
 # Load the dataset
 file_path = r'C:\Users\siyak\Downloads\data\sider\data.npy'
@@ -25,51 +25,38 @@ X_pca = pca.fit_transform(X_scaled)
 # Initialize KNN model
 model = KNeighborsClassifier()
 
-# Perform 3-fold cross-validation predictions
-y_proba = cross_val_predict(model, X_pca, y, cv=3, method='predict_proba')[:, 1]
+# Define the number of folds
+n_splits = 3
 
-# Compute ROC curve
-fpr, tpr, _ = roc_curve(y, y_proba)
+# Initialize arrays to store results
+auroc_scores = []
+auprc_scores = []
 
-# Calculate AUROC
-auroc = auc(fpr, tpr)
-print("Area Under ROC Curve (AUROC) for KNN:", auroc)
+# Perform 3 k-fold cross-validation
+kf = KFold(n_splits=n_splits)
+for train_index, test_index in kf.split(X_pca):
+    X_train, X_test = X_pca[train_index], X_pca[test_index]
+    y_train, y_test = y[train_index], y[test_index]
+    
+    # Fit the KNN model
+    model.fit(X_train, y_train)
+    
+    # Predict probabilities for ROC curve
+    y_proba = model.predict_proba(X_test)[:, 1]
+    
+    # Compute ROC curve and AUROC
+    fpr, tpr, _ = roc_curve(y_test, y_proba)
+    auroc = auc(fpr, tpr)
+    auroc_scores.append(auroc)
 
+    # Compute precision-recall curve and AUPRC
+    precision, recall, _ = precision_recall_curve(y_test, y_proba)
+    auprc = auc(recall, precision)
+    auprc_scores.append(auprc)
 
+# Calculate mean AUROC and AUPRC
+mean_auroc = np.mean(auroc_scores)
+mean_auprc = np.mean(auprc_scores)
 
-import numpy as np
-from sklearn.model_selection import cross_val_predict
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.preprocessing import StandardScaler
-from sklearn.decomposition import PCA
-from sklearn.metrics import precision_recall_curve, auc
-
-# Load the dataset
-file_path = r'C:\Users\siyak\Downloads\data\sider\data.npy'
-data = np.load(file_path, allow_pickle=True)
-
-# Separate features and target
-X = data[:, :-1]
-y = data[:, -1]
-
-# Standardize the features
-scaler = StandardScaler()
-X_scaled = scaler.fit_transform(X)
-
-# Specify the number of components for PCA
-n_components = 10
-pca = PCA(n_components=n_components)
-X_pca = pca.fit_transform(X_scaled)
-
-# Initialize KNN model
-model = KNeighborsClassifier()
-
-# Perform 3-fold cross-validation predictions
-y_proba = cross_val_predict(model, X_pca, y, cv=3, method='predict_proba')[:, 1]
-
-# Compute precision-recall curve
-precision, recall, _ = precision_recall_curve(y, y_proba)
-
-# Calculate AUPRC
-auprc = auc(recall, precision)
-print("Area Under Precision-Recall Curve (AUPRC) for KNN:", auprc)
+print("Mean Area Under ROC Curve (AUROC) for KNN:", mean_auroc)
+print("Mean Area Under Precision-Recall Curve (AUPRC) for KNN:", mean_auprc)
