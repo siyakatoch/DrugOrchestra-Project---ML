@@ -1,9 +1,9 @@
 import numpy as np
-from sklearn.model_selection import cross_val_predict
+from sklearn.model_selection import KFold
 from sklearn.linear_model import LogisticRegression
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import precision_recall_curve, auc
+from sklearn.metrics import precision_recall_curve, auc, roc_curve
 
 # Load the dataset
 file_path = r'C:\Users\siyak\Downloads\data\stitch\data_900.npy'
@@ -25,51 +25,43 @@ X_pca = pca.fit_transform(X_scaled)
 # Initialize logistic regression model
 model = LogisticRegression()
 
-# Perform 3-fold cross-validation predictions
-y_proba = cross_val_predict(model, X_pca, y, cv=3, method='predict_proba')[:, 1]
+# Define the number of folds
+n_splits = 3
 
-# Compute precision-recall curve
-precision, recall, _ = precision_recall_curve(y, y_proba)
+# Initialize arrays to store results
+precision_list, recall_list, auprc_list = [], [], []
+fpr_list, tpr_list, auroc_list = [], [], []
 
-# Calculate AUPRC
-auprc = auc(recall, precision)
-print("Area Under Precision-Recall Curve (AUPRC):", auprc)
+# Perform 3 k-fold cross-validation
+kf = KFold(n_splits=n_splits)
+for train_index, test_index in kf.split(X_pca):
+    X_train, X_test = X_pca[train_index], X_pca[test_index]
+    y_train, y_test = y[train_index], y[test_index]
+    
+    # Fit the model
+    model.fit(X_train, y_train)
+    
+    # Predict probabilities
+    y_proba = model.predict_proba(X_test)[:, 1]
+    
+    # Compute precision-recall curve
+    precision, recall, _ = precision_recall_curve(y_test, y_proba)
+    precision_list.append(precision)
+    recall_list.append(recall)
+    auprc = auc(recall, precision)
+    auprc_list.append(auprc)
+    
+    # Compute ROC curve
+    fpr, tpr, _ = roc_curve(y_test, y_proba)
+    fpr_list.append(fpr)
+    tpr_list.append(tpr)
+    auroc = auc(fpr, tpr)
+    auroc_list.append(auroc)
 
+# Calculate mean AUPRC
+mean_auprc = np.mean(auprc_list)
+print("Mean Area Under Precision-Recall Curve (AUPRC):", mean_auprc)
 
-
-import numpy as np
-from sklearn.model_selection import cross_val_predict
-from sklearn.linear_model import LogisticRegression
-from sklearn.decomposition import PCA
-from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import roc_curve, auc
-
-# Load the dataset
-file_path = r'C:\Users\siyak\Downloads\data\stitch\data_900.npy'
-data = np.load(file_path, allow_pickle=True)
-
-# Separate features and target
-X = data[:, :-1]
-y = data[:, -1]
-
-# Standardize the features
-scaler = StandardScaler()
-X_scaled = scaler.fit_transform(X)
-
-# Specify the number of components for PCA
-n_components = 10
-pca = PCA(n_components=n_components)
-X_pca = pca.fit_transform(X_scaled)
-
-# Initialize logistic regression model
-model = LogisticRegression()
-
-# Perform 3-fold cross-validation predictions
-y_proba = cross_val_predict(model, X_pca, y, cv=3, method='predict_proba')[:, 1]
-
-# Compute ROC curve
-fpr, tpr, _ = roc_curve(y, y_proba)
-
-# Calculate AUROC
-auroc = auc(fpr, tpr)
-print("Area Under ROC Curve (AUROC):", auroc)
+# Calculate mean AUROC
+mean_auroc = np.mean(auroc_list)
+print("Mean Area Under ROC Curve (AUROC):", mean_auroc)
