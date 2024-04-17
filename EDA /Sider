@@ -1,0 +1,61 @@
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import confusion_matrix, classification_report
+
+# Load the dataset
+data = np.load(r'C:\Users\siyak\Downloads\data\sider\data.npy')
+
+# Display basic information about the dataset
+print("Dataset Shape:", data.shape)
+print("Dataset Datatype:", data.dtype)
+
+# Summary statistics
+print("Summary Statistics:")
+print(np.nanmean(data, axis=0))  # Calculate mean ignoring NaN values
+print(np.nanstd(data, axis=0))   # Calculate standard deviation ignoring NaN values
+
+# Check for missing values
+missing_values = np.isnan(data).sum()
+print("Missing Values:", missing_values)
+
+# Assuming the target variable is the last column
+X = data[:, :-1]  # Features
+y = data[:, -1]   # Target
+
+# Split the data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Choose a classification algorithm (e.g., Random Forest, Logistic Regression, SVM, etc.)
+model = RandomForestClassifier()
+
+# Train the model
+model.fit(X_train, y_train)
+
+# Evaluate the model
+accuracy = model.score(X_test, y_test)
+print("Accuracy:", accuracy)
+
+# Visualize the distribution of the target variable
+plt.figure(figsize=(8, 6))
+sns.countplot(x=y)
+plt.title('Distribution of Target Variable')
+plt.xlabel('Class')
+plt.ylabel('Count')
+plt.show()
+
+# Plot a confusion matrix
+y_pred = model.predict(X_test)
+cm = confusion_matrix(y_test, y_pred)
+plt.figure(figsize=(8, 6))
+sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', cbar=False)
+plt.title('Confusion Matrix')
+plt.xlabel('Predicted Labels')
+plt.ylabel('True Labels')
+plt.show()
+
+# Print classification report
+print("Classification Report:")
+print(classification_report(y_test, y_pred))
