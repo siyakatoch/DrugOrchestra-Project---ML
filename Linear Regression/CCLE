@@ -1,62 +1,126 @@
 import numpy as np
 from sklearn.model_selection import KFold
 from sklearn.linear_model import LinearRegression
-from sklearn.metrics import mean_absolute_error
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import precision_recall_curve, auc, roc_auc_score, mean_squared_error
 from scipy.stats import spearmanr
 
-# Load the dataset
-file_path = r'C:/Users/siyak/Downloads/data/ccle/data.npy'
-data = np.load(file_path, allow_pickle=True)
+# Define dataset paths
+datasets = {
+    'STITCH': r"C:\Users\siyak\Downloads\data\stitch\data_900.npy",
+    'Drugbank': r'C:\Users\siyak\Downloads\data\drugbank\data.npy',
+    'Repur': r"C:/Users/siyak/Downloads/data/repurposing_hub/data.npy",
+    'PDX': r"C:/Users/siyak/Downloads\data\pdx\data.npy",
+    'GDSC': r"C:/Users/siyak\Downloads\data\GDSC\data.npy",
+    'CCLE': r"C:/Users/siyak\Downloads\data\CCLE\data.npy",
+    'SIDER': r"C:\Users\siyak\Downloads\data\sider\data.npy",
+    'OFFSIDE': r"C:\Users\siyak\Downloads\data\offside\data.npy"
+}
 
-# Separate features and target
-X = data[:, :-1]
-y = data[:, -1]
-
-# Standardize the features
-scaler = StandardScaler()
-X_scaled = scaler.fit_transform(X)
-
-# Specify the number of components for PCA
-n_components = 10
-pca = PCA(n_components=n_components)
-X_pca = pca.fit_transform(X_scaled)
-
-# Initialize linear regression model
-model_lr = LinearRegression()
-
-# Define the number of folds
-n_splits = 3
-
-# Initialize arrays to store results
-mae_scores = []
-spearman_correlations = []
-
-# Perform 3 k-fold cross-validation for linear regression model
-kf = KFold(n_splits=n_splits)
-for train_index, test_index in kf.split(X_pca):
-    X_train, X_test = X_pca[train_index], X_pca[test_index]
-    y_train, y_test = y[train_index], y[test_index]
+# Loop through each dataset
+for name, file_path in datasets.items():
+    print(f"Processing dataset: {name}")
     
-    # Fit the linear regression model
-    model_lr.fit(X_train, y_train)
+    # Load the dataset
+    data = np.load(file_path, allow_pickle=True)
     
-    # Predict using the linear regression model
-    y_pred_lr = model_lr.predict(X_test)
+    # Separate features and target
+    X = data[:, :-1]
+    y = data[:, -1]
     
-    # Calculate mean absolute error
-    mae = mean_absolute_error(y_test, y_pred_lr)
-    mae_scores.append(mae)
+    # Standardize the features
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
+    
+    # Specify the number of components for PCA
+    n_components = 10
+    pca = PCA(n_components=n_components)
+    X_pca = pca.fit_transform(X_scaled)
+    
+    # Check if it's a classification or regression task
+    if name in ['PDX', 'CCLE', 'GDSC']:
+        # Regression task
+        model = LinearRegression()
+        
+        # Define KFold with k=3
+        kf = KFold(n_splits=3, shuffle=True, random_state=42)
+        
+        # Lists to store MSE and SCC for each fold
+        mse_list = []
+        scc_list = []
+        
+        # Perform k-fold cross-validation
+        for train_index, test_index in kf.split(X_pca):
+            X_train, X_test = X_pca[train_index], X_pca[test_index]
+            y_train, y_test = y[train_index], y[test_index]
+            
+            # Fit the model
+            model.fit(X_train, y_train)
+            
+            # Predictions
+            y_pred = model.predict(X_test)
+            
+            # Compute MSE
+            mse = mean_squared_error(y_test, y_pred)
+            mse_list.append(mse)
+            
+            # Compute SCC
+            scc, _ = spearmanr(y_test, y_pred)
+            scc_list.append(scc)
+        
+        # Average MSE and SCC over folds
+        avg_mse = np.mean(mse_list)
+        avg_scc = np.mean(scc_list)
+        
+        print(f"Average Mean Squared Error (MSE) for {name}: {avg_mse}")
+        print(f"Average Spearman Correlation Coefficient (SCC) for {name}: {avg_scc}")
+    
+    else:
+        # Classification task
+        # Define KFold with k=3
+        kf = KFold(n_splits=3, shuffle=True, random_state=42)
+        
+        # Lists to store precision and recall for each fold
+        precision_list = []
+        recall_list = []
+        
+        # Perform k-fold cross-validation
+        for train_index, test_index in kf.split(X_pca):
+            X_train, X_test = X_pca[train_index], X_pca[test_index]
+            y_train, y_test = y[train_index], y[test_index]
+            
+            # Standardize the features
+            scaler = StandardScaler()
+            X_train_scaled = scaler.fit_transform(X_train)
+            X_test_scaled = scaler.transform(X_test)
+            
+            # PCA on standardized data
+            pca = PCA(n_components=n_components)
+            X_train_pca = pca.fit_transform(X_train_scaled)
+            X_test_pca = pca.transform(X_test_scaled)
+            
+            # Linear Regression for classification
+            model = LinearRegression()
+            model.fit(X_train_pca, y_train)
+            
+            # Predict probabilities for test set
+            y_pred = model.predict(X_test_pca)
+            
+            # Compute precision-recall curve
+            precision, recall, _ = precision_recall_curve(y_test, y_pred)
+            
+            # Store precision and recall
+            precision_list.append(precision)
+            recall_list.append(recall)
+        
+        # Average precision and recall over folds
+        precision_avg = np.mean(precision_list, axis=0)
+        recall_avg = np.mean(recall_list, axis=0)
+        
+        # Calculate AUPRC
+        auprc = auc(recall_avg, precision_avg)
+        print(f"Area Under Precision-Recall Curve (AUPRC) for {name}: {auprc}")
+    
+    print("------------------------------------------------------")
 
-    # Calculate Spearman correlation coefficient
-    scc, _ = spearmanr(y_test, y_pred_lr)
-    spearman_correlations.append(scc)
-
-# Calculate mean MAE score
-mean_mae = np.mean(mae_scores)
-print("Mean MAE score:", mean_mae)
-
-# Calculate mean Spearman correlation coefficient
-mean_scc = np.mean(spearman_correlations)
-print("Mean Spearman correlation coefficient:", mean_scc)
