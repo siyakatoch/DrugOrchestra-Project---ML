@@ -1,0 +1,84 @@
+import numpy as np
+from sklearn.model_selection import KFold
+from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import precision_recall_curve, auc, roc_auc_score
+
+# Define dataset paths
+datasets = {
+    'STITCH': r"C:\Users\siyak\Downloads\data\stitch\data_900.npy",
+    'Drugbank': r'C:\Users\siyak\Downloads\data\drugbank\data.npy',
+    'Repur': r"C:/Users/siyak/Downloads/data/repurposing_hub/data.npy",
+    'PDX': r"C:/Users/siyak/Downloads\data\pdx\data.npy",
+    'GDSC': r"C:/Users/siyak\Downloads\data\GDSC\data.npy",
+    'CCLE': r"C:/Users/siyak\Downloads\data\CCLE\data.npy",
+    'SIDER': r"C:\Users\siyak\Downloads\data\sider\data.npy",
+    'OFFSIDE': r"C:\Users\siyak\Downloads\data\offside\data.npy"
+}
+
+# Loop through each dataset
+for name, file_path in datasets.items():
+    print(f"Processing dataset: {name}")
+    
+    # Load the dataset
+    data = np.load(file_path, allow_pickle=True)
+    
+    # Separate features and target
+    X = data[:, :-1]
+    y = data[:, -1]
+    
+    # Standardize the features
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
+    
+    # Specify the number of components for PCA
+    n_components = 10
+    pca = PCA(n_components=n_components)
+    X_pca = pca.fit_transform(X_scaled)
+    
+    # Initialize Gradient Boosting model
+    model = GradientBoostingClassifier()
+    
+    # Define KFold with k=3
+    kf = KFold(n_splits=3, shuffle=True, random_state=42)
+    
+    # Lists to store precision and recall for each fold
+    precision_list = []
+    recall_list = []
+    auroc_scores = []
+    
+    # Perform k-fold cross-validation
+    for train_index, test_index in kf.split(X_pca):
+        X_train, X_test = X_pca[train_index], X_pca[test_index]
+        y_train, y_test = y[train_index], y[test_index]
+        
+        # Fit the model
+        model.fit(X_train, y_train)
+        
+        # Predict probabilities for test set
+        y_proba = model.predict_proba(X_test)[:, 1]
+        
+        # Compute precision-recall curve
+        precision, recall, _ = precision_recall_curve(y_test, y_proba)
+        
+        # Store precision and recall
+        precision_list.append(precision)
+        recall_list.append(recall)
+        
+        # Calculate AUROC for the fold
+        fold_auroc = roc_auc_score(y_test, y_proba)
+        auroc_scores.append(fold_auroc)
+    
+    # Average precision and recall over folds
+    precision_avg = np.mean(precision_list, axis=0)
+    recall_avg = np.mean(recall_list, axis=0)
+    
+    # Calculate AUPRC
+    auprc = auc(recall_avg, precision_avg)
+    print(f"Area Under Precision-Recall Curve (AUPRC) for {name}: {auprc}")
+    
+    # Compute average AUROC score
+    avg_auroc = np.mean(auroc_scores)
+    print(f"Average Area Under Receiver Operating Characteristic Curve (AUROC) for {name}: {avg_auroc}")
+    print("------------------------------------------------------")
