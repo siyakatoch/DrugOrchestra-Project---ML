@@ -23,7 +23,8 @@ pca = PCA(n_components=n_components)
 X_pca = pca.fit_transform(X_scaled)
 
 # Initialize KNN model for regression
-model = KNeighborsRegressor()
+model_knn = KNeighborsRegressor(n_neighbors=3)
+
 
 # Define the number of folds
 n_splits = 3
